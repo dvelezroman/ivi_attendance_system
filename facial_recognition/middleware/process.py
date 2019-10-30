@@ -14,7 +14,7 @@ known_faces_file_names = []
 
 
 # Walk in the folder to add every file name to known_faces_file_names
-def get_known_faces_file_names(path="assets/img/users"):
+def get_known_faces_file_names(path="../assets/img/users"):
     for (dir_path, dir_names, file_names) in os.walk(path):
         known_faces_file_names.extend(file_names)
         break
@@ -27,7 +27,7 @@ def load_picture(file_name):
 
 
 # Walk in the folder
-def encode_known_faces(path="assets/img/users"):
+def encode_known_faces(path="../assets/img/users/"):
     for filename in known_faces_file_names:
         # load the picture
         picture = load_picture(path + filename)
@@ -52,25 +52,43 @@ def encode_faces_picture(picture):
     return encoded_faces
 
 
-# get face locations in a picture
-def get_face_locations(frames_to_get_locations_queue, locations_queue):
+# get the face locations of a picture
+def get_face_locations(picture):
+    # get the locations of faces in frame
+    locations = face_recognition.face_locations(picture)
+    return locations
+
+
+# get face locations in a picture process
+def get_face_locations_process(frames_to_get_locations_queue, locations_queue, encodings_of_frame_queue):
     while True:
         if frames_to_get_locations_queue.qsize() > 0:
+            # get the frame of the queue
             picture = frames_to_get_locations_queue.get()
+            # get the locations of faces in frame
             locations = face_recognition.face_locations(picture)
             locations_queue.put(locations)
+            faces_locations_names = []
+            for location in locations:
+                # get encodings of the face
+                encoding = face_recognition.face_encodings(picture, locations)
+                face_name = compare_face_against_known_faces(encoding)
+                dict_1 = {"name": face_name, "location": location}
+                faces_locations_names.append(dict_1)
+
+            encodings_of_frame_queue.put(faces_locations_names)
 
 
 # get best match of a face
 def compare_face_against_known_faces(encoding):
-    matches = face_recognition.compare_faces(known_face_encodings, encoding)
-    name = "Unknown"
-    face_distances = face_recognition.face_distance(known_face_encodings, encoding)
+    matches = face_recognition.compare_faces(known_face_encodings, encoding[0])
+    face_name = "Unknown"
+    face_distances = face_recognition.face_distance(known_face_encodings, encoding[0])
     best_match_index = np.argmin(face_distances)
     if matches[best_match_index]:
-        name = known_face_names[best_match_index]
+        face_name = known_face_names[best_match_index]
 
-    return name
+    return face_name
 
 
 # gets the video source
@@ -110,21 +128,30 @@ def put_frames_to_queue(stream, frames_queue, frames_to_get_locations_queue):
 
 # * ------------------------ Select the web cam of the computer -----------------------
 if __name__ == '__main__':
+
+    get_known_faces_file_names()
+    encode_known_faces()
+
     video_stream = get_video_stream()
     frames = 0
     fps = get_frame_rate(video_stream)
     monitoring = True
 
+    # queue containing frames
     frames_queue = multiprocessing.Queue()
+    # queue containing the locations of found faces in a frame
     locations_queue = multiprocessing.Queue()
+    # queue containing the frames to get the face locations
     frames_to_get_locations_queue = multiprocessing.Queue()
+    # queue containing the encodings of the found faces in a frame
+    encodings_of_frame_queue = multiprocessing.Queue()
 
     put_frames_to_queue_process = multiprocessing.Process(
-        target=put_frames_to_queue, args=(video_stream, frames_queue, frames_to_get_locations_queue, ))
+        target=put_frames_to_queue, args=(video_stream, frames_queue, frames_to_get_locations_queue,))
     put_frames_to_queue_process.start()
 
     get_face_locations_process = multiprocessing.Process(
-        target=get_face_locations, args=(frames_queue, locations_queue, ))
+        target=get_face_locations_process, args=(frames_queue, locations_queue, encodings_of_frame_queue,))
     get_face_locations_process.start()
 
     faces = []
@@ -133,8 +160,15 @@ if __name__ == '__main__':
         frames += 1
         frm = frames_queue.get()
 
-        if locations_queue.qsize() > 0:
-            faces = locations_queue.get()
+        if encodings_of_frame_queue.qsize() > 0:
+            faces = encodings_of_frame_queue.get()
+
+        # mark every face in frame with a rectangle
+        for face in faces:
+            (top, right, bottom, left) = face['location']
+            name = face['name']
+            cv2.rectangle(frm, (left, top), (right, bottom), (0, 255, 0), 1, cv2.FONT_HERSHEY_SIMPLEX)
+            cv2.putText(frm, name, (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
 
         text = "{} faces".format(len(faces))
         cv2.putText(frm, text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
@@ -142,8 +176,10 @@ if __name__ == '__main__':
         # Showing the frame with all the applied modifications
         cv2.imshow("Stream", frm)
 
+        # Press "q" key if you want to exit
         key_pressed = cv2.waitKey(1) & 0xFF
         if key_pressed == ord("q"):
+            # close all the queues
             locations_queue.close()
             frames_queue.close()
             frames_to_get_locations_queue.close()
