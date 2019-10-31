@@ -19,6 +19,22 @@ app = Flask(__name__)
 CORS(app, support_credentials=True)
 
 
+# * ---------- DATABASE CONFIG --------- *
+DATABASE_USER = os.environ['DATABASE_USER']
+DATABASE_PASSWORD = os.environ['DATABASE_PASSWORD']
+DATABASE_HOST = os.environ['DATABASE_HOST']
+DATABASE_PORT = os.environ['DATABASE_PORT']
+DATABASE_NAME = os.environ['DATABASE_NAME']
+
+
+def database_connection():
+    return psycopg2.connect(user=DATABASE_USER,
+                            password=DATABASE_PASSWORD,
+                            host=DATABASE_HOST,
+                            port=DATABASE_PORT,
+                            database=DATABASE_NAME)
+
+
 # * --------------------------- ROUTES ---------------------------------- *
 # --------------------- Get data from the face recognition ------------- *
 @app.route('/receive_data', methods=['POST'])
@@ -29,11 +45,7 @@ def get_receive_data():
 
         try:
             # Connect to the DB
-            connection = psycopg2.connect(user="USER_NAME",
-                                          password="PASSWORD",
-                                          host="DB_HOST",
-                                          port="PORT",
-                                          database="DATABASE_NAME")
+            connection = database_connection()
             # Open a cursor
             cursor = connection.cursor()
 
@@ -80,11 +92,7 @@ def get_employee(name):
     # Check if the user is already in the DB
     try:
         # Connect to DB
-        connection = psycopg2.connect(user="USER",
-                                      password="PASSWORD",
-                                      host="DB_HOST",
-                                      port="PORT",
-                                      database="DATABASE_NAME")
+        connection = database_connection()
 
         cursor = connection.cursor()
         # Query the DB to get all the data of a user:
@@ -126,11 +134,7 @@ def get_5_last_entries():
     # Check if the user is already in the DB
     try:
         # Connect to DB
-        connection = psycopg2.connect(user="USER_NAME",
-                                      password="PASSWORD",
-                                      host="HOST_NAME",
-                                      port="PORT",
-                                      database="DATABASE_NAME")
+        connection = database_connection()
 
         cursor = connection.cursor()
         # Query the DB to get the 5 last entries ordered by ID:
@@ -206,7 +210,7 @@ def delete_employee(name):
     try:
         # Select the path
         file_path = os.path.join(f'assets/img/users/{name}.jpg')
-         # Remove the picture of the employee from the user's folder:
+        # Remove the picture of the employee from the user's folder:
         os.remove(file_path)
         answer = 'Employee succesfully removed'
 
@@ -220,5 +224,8 @@ def delete_employee(name):
 if __name__ == '__main__':
     # * ---- DEBUG MODE: ----- *
     app.run(host='127.0.0.1', port=5000, debug=True)
+
+    #  * --- DOCKER PRODUCTION MODE: --- *
+    # app.run(host='0.0.0.0', port=os.environ['PORT']) -> DOCKER
 
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import WebCamComponent from './WebCamComponent';
 
 const VideoFeed = () => {
 	const VideoFeedSection = styled.section`
@@ -20,8 +21,8 @@ const VideoFeed = () => {
 	`;
 	return (
 		<VideoFeedSection className='some-space'>
-			<h2>Video Feed - classroom 1</h2>
-			<iframe
+			<h2>Video Feed</h2>
+			{/* <iframe
 				allowFullScreen
 				title='camera feed'
 				webkitallowfullscreen
@@ -30,7 +31,8 @@ const VideoFeed = () => {
 				frameBorder='0'
 				width='100%'
 				height='576'
-			/>
+			/> */}
+			<WebCamComponent />
 		</VideoFeedSection>
 	);
 };
