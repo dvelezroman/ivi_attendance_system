@@ -4,8 +4,9 @@ import cv2
 import numpy as np
 import multiprocessing
 import os
-from time import sleep
+from time import sleep, localtime
 import re
+import requests
 
 # Declare all the list
 known_face_encodings = []
@@ -14,9 +15,9 @@ known_faces_file_names = []
 
 
 # Walk in the folder to add every file name to known_faces_file_names
-def get_known_faces_file_names(path="../assets/img/users"):
-    for (dir_path, dir_names, file_names) in os.walk(path):
-        known_faces_file_names.extend(file_names)
+def get_known_faces_file_names(path="./middleware/assets/img/users/"):
+    for root, dirs, files in os.walk(path):
+        known_faces_file_names.extend(files)
         break
 
 
@@ -27,7 +28,7 @@ def load_picture(file_name):
 
 
 # Walk in the folder
-def encode_known_faces(path="../assets/img/users/"):
+def encode_known_faces(path="./middleware/assets/img/users/"):
     for filename in known_faces_file_names:
         # load the picture
         picture = load_picture(path + filename)
@@ -60,7 +61,7 @@ def get_face_locations(picture):
 
 
 # get face locations in a picture process
-def get_face_locations_process(frames_to_get_locations_queue, locations_queue, encodings_of_frame_queue):
+def get_face_locations_process(frames_to_get_locations_queue, locations_queue, encodings_of_frame_queue, recognized_faces_to_server):
     while True:
         if frames_to_get_locations_queue.qsize() > 0:
             # get the frame of the queue
@@ -75,8 +76,30 @@ def get_face_locations_process(frames_to_get_locations_queue, locations_queue, e
                 face_name = compare_face_against_known_faces(encoding)
                 dict_1 = {"name": face_name, "location": location}
                 faces_locations_names.append(dict_1)
+                # send the recognized face to the server to register it
+                recognized_faces_to_server.put({"name": face_name})
 
             encodings_of_frame_queue.put(faces_locations_names)
+
+
+def send_recognized_faces_to_backend(recognized_faces_to_server):
+    while True:
+        json_to_export = {
+            "name": None,
+            "date": None,
+            "hour": None
+        }
+        recognized_face = recognized_faces_to_server.get(recognized_faces_to_server)
+        print(recognized_face['name'])
+        if recognized_face['name'] is not "Unknown":
+            json_to_export['name'] = recognized_face['name']
+            json_to_export['hour'] = '{}:{}'.format(localtime().tm_hour, localtime().tm_min)
+            json_to_export['date'] = '{}-{}-{}'.format(localtime().tm_year, localtime().tm_mon, localtime().tm_mday)
+            # TODO: add the picture
+            # -------------------- SEND data to API ----------------------------------
+            # Make a POST request to the API
+            r = requests.post(url='http://127.0.0.1:5000/receive_data', json=json_to_export)
+            print("Status: ", r.status_code)
 
 
 # get best match of a face
@@ -84,9 +107,10 @@ def compare_face_against_known_faces(encoding):
     matches = face_recognition.compare_faces(known_face_encodings, encoding[0])
     face_name = "Unknown"
     face_distances = face_recognition.face_distance(known_face_encodings, encoding[0])
-    best_match_index = np.argmin(face_distances)
-    if matches[best_match_index]:
-        face_name = known_face_names[best_match_index]
+    if len(face_distances) > 0:
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            face_name = known_face_names[best_match_index]
 
     return face_name
 
@@ -145,14 +169,22 @@ if __name__ == '__main__':
     frames_to_get_locations_queue = multiprocessing.Queue()
     # queue containing the encodings of the found faces in a frame
     encodings_of_frame_queue = multiprocessing.Queue()
+    # queue containing the recognized faces for sending to the API to register in the DataBase
+    recognized_faces_to_server = multiprocessing.Queue()
 
     put_frames_to_queue_process = multiprocessing.Process(
         target=put_frames_to_queue, args=(video_stream, frames_queue, frames_to_get_locations_queue,))
     put_frames_to_queue_process.start()
 
     get_face_locations_process = multiprocessing.Process(
-        target=get_face_locations_process, args=(frames_queue, locations_queue, encodings_of_frame_queue,))
+        target=get_face_locations_process,
+        args=(frames_queue, locations_queue, encodings_of_frame_queue, recognized_faces_to_server, ))
     get_face_locations_process.start()
+
+    send_recognized_faces_to_backend_process = multiprocessing.Process(
+        target=send_recognized_faces_to_backend,
+        args=(recognized_faces_to_server, ))
+    send_recognized_faces_to_backend_process.start()
 
     faces = []
 
@@ -185,6 +217,7 @@ if __name__ == '__main__':
             frames_to_get_locations_queue.close()
             put_frames_to_queue_process.terminate()
             get_face_locations_process.terminate()
+            send_recognized_faces_to_backend_process.terminate()
             break
 
     cv2.destroyAllWindows()

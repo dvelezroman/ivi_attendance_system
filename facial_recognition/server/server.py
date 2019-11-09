@@ -18,13 +18,12 @@ app = Flask(__name__)
 # To avoid CORS errors
 CORS(app, support_credentials=True)
 
-
 # * ---------- DATABASE CONFIG --------- *
-DATABASE_USER = os.environ['DATABASE_USER']
-DATABASE_PASSWORD = os.environ['DATABASE_PASSWORD']
-DATABASE_HOST = os.environ['DATABASE_HOST']
-DATABASE_PORT = os.environ['DATABASE_PORT']
-DATABASE_NAME = os.environ['DATABASE_NAME']
+DATABASE_USER = 'postgres'
+DATABASE_PASSWORD = 'postgres2019'
+DATABASE_HOST = '127.0.0.1'
+DATABASE_PORT = '5432'
+DATABASE_NAME = 'attendance'
 
 
 def database_connection():
@@ -42,7 +41,7 @@ def get_receive_data():
     if request.method == 'POST':
         # Get the data
         json_data = request.get_json()
-
+        print(json_data)
         try:
             # Connect to the DB
             connection = database_connection()
@@ -50,7 +49,8 @@ def get_receive_data():
             cursor = connection.cursor()
 
             # Query to check if the user has been saw by the camera today
-            is_user_here_today = f"SELECT * FROM users WHERE data = '{json_data['date']}' AND name = '{json_data['name']}"
+            is_user_here_today = \
+                f"SELECT * FROM users WHERE date = '{json_data['date']}' AND name = '{json_data['name']}'"
             cursor.execute(is_user_here_today)
             # Store the result
             result = cursor.fetchall()
@@ -60,12 +60,16 @@ def get_receive_data():
             # if user is already in the DB for today:
             if result:
                 # Update user in the  DB
-                update_user_query = f"UPDATE users SET departure_time = '{json_data['hour']}', departure_picture = '{json_data['picture_path']}' WHERE name = '{json_data['name']}' AND date = '{json_data['date']}'"
+                update_user_query = f"UPDATE users SET departure_time = '{json_data['hour']}', " \
+                                    f"departure_picture = '{json_data['picture_path']}' " \
+                                    f"WHERE name = '{json_data['name']}' AND date = '{json_data['date']}'"
                 cursor.execute(update_user_query)
 
             else:
                 # Create a new row for the user today
-                insert_user_query = f"INSERT INTO users (name, date, arrival_time, arrival_picture) VALUES ('{json_data['name']}', '{json_data['date']}', '{json_data['hour']}', '{json_data['picture_path']}')"
+                insert_user_query = f"INSERT INTO users (name, date, arrival_time, arrival_picture) " \
+                                    f"VALUES ('{json_data['name']}', '{json_data['date']}', '{json_data['hour']}', " \
+                                    f"'{json_data['picture_path']}')"
                 cursor.execute(insert_user_query)
 
         except (Exception, psycopg2.DatabaseError) as error:
@@ -79,7 +83,7 @@ def get_receive_data():
             if connection:
                 cursor.close()
                 connection.close()
-                print("PostgreSQL connection is closed")
+                print("PostgresSQL connection is closed")
 
         # Return user's data to the front
         return jsonify(json_data)
