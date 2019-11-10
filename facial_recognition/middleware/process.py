@@ -77,7 +77,7 @@ def get_face_locations_process(frames_to_get_locations_queue, locations_queue, e
                 dict_1 = {"name": face_name, "location": location}
                 faces_locations_names.append(dict_1)
                 # send the recognized face to the server to register it
-                recognized_faces_to_server.put({"name": face_name})
+                recognized_faces_to_server.put({"name": face_name, "frame": picture})
 
             encodings_of_frame_queue.put(faces_locations_names)
 
@@ -87,7 +87,8 @@ def send_recognized_faces_to_backend(recognized_faces_to_server):
         json_to_export = {
             "name": None,
             "date": None,
-            "hour": None
+            "hour": None,
+            "picture_path": None
         }
         recognized_face = recognized_faces_to_server.get(recognized_faces_to_server)
         print(recognized_face['name'])
@@ -95,7 +96,20 @@ def send_recognized_faces_to_backend(recognized_faces_to_server):
             json_to_export['name'] = recognized_face['name']
             json_to_export['hour'] = '{}:{}'.format(localtime().tm_hour, localtime().tm_min)
             json_to_export['date'] = '{}-{}-{}'.format(localtime().tm_year, localtime().tm_mon, localtime().tm_mday)
-            # TODO: add the picture
+            # save the frame where the face is recognized in a folder with the actual date
+            folder_path = "./middleware/assets/img/attendance/{}-{}-{}".format(localtime().tm_year, localtime().tm_mon,
+                                                                               localtime().tm_mday)
+            if not os.path.exists(folder_path):
+                os.mkdir(folder_path)
+
+            picture_path = os.path.join(folder_path, f"{recognized_face['name']}_arrival.jpg")
+
+            if os.path.exists(picture_path):
+                picture_path = os.path.join(folder_path, f"{recognized_face['name']}_departure.jpg")
+
+            # store the picture and add the path to be send the API
+            cv2.imwrite(picture_path, recognized_face['frame'])
+            json_to_export['picture_path'] = picture_path
             # -------------------- SEND data to API ----------------------------------
             # Make a POST request to the API
             r = requests.post(url='http://127.0.0.1:5000/receive_data', json=json_to_export)
