@@ -70,16 +70,33 @@ def get_face_locations_process(frames_to_get_locations_queue, locations_queue, e
             locations = face_recognition.face_locations(picture)
             locations_queue.put(locations)
             faces_locations_names = []
-            for location in locations:
-                # get encodings of the face
-                encoding = face_recognition.face_encodings(picture, locations)
+
+            # for location in locations:
+            # get encodings of the faces
+            encodings = face_recognition.face_encodings(picture, locations)
+
+            for index, encoding in enumerate(encodings):
                 face_name = compare_face_against_known_faces(encoding)
-                dict_1 = {"name": face_name, "location": location}
-                faces_locations_names.append(dict_1)
+                face_location_name = {"name": face_name, "location": locations[index]}
+                faces_locations_names.append(face_location_name)
                 # send the recognized face to the server to register it
                 recognized_faces_to_server.put({"name": face_name, "frame": picture})
 
             encodings_of_frame_queue.put(faces_locations_names)
+
+
+# get best match of a face
+# FIXME: we have to compare all the detected faces in a frame
+def compare_face_against_known_faces(encoding):
+    matches = face_recognition.compare_faces(known_face_encodings, encoding)
+    face_name = "Unknown"
+    face_distances = face_recognition.face_distance(known_face_encodings, encoding)
+    if len(face_distances) > 0:
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            face_name = known_face_names[best_match_index]
+
+    return face_name
 
 
 def send_recognized_faces_to_backend(recognized_faces_to_server):
@@ -91,7 +108,7 @@ def send_recognized_faces_to_backend(recognized_faces_to_server):
             "picture_path": None
         }
         recognized_face = recognized_faces_to_server.get(recognized_faces_to_server)
-        print(recognized_face['name'])
+        # print(recognized_face['name'])
         if recognized_face['name'] is not "Unknown":
             json_to_export['name'] = recognized_face['name']
             json_to_export['hour'] = '{}:{}'.format(localtime().tm_hour, localtime().tm_min)
@@ -113,20 +130,6 @@ def send_recognized_faces_to_backend(recognized_faces_to_server):
             # -------------------- SEND data to API ----------------------------------
             # Make a POST request to the API
             r = requests.post(url='http://127.0.0.1:5000/receive_data', json=json_to_export)
-            print("Status: ", r.status_code)
-
-
-# get best match of a face
-def compare_face_against_known_faces(encoding):
-    matches = face_recognition.compare_faces(known_face_encodings, encoding[0])
-    face_name = "Unknown"
-    face_distances = face_recognition.face_distance(known_face_encodings, encoding[0])
-    if len(face_distances) > 0:
-        best_match_index = np.argmin(face_distances)
-        if matches[best_match_index]:
-            face_name = known_face_names[best_match_index]
-
-    return face_name
 
 
 # gets the video source
