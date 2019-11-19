@@ -49,7 +49,7 @@ const LastArrivalList = () => {
 	const LastEntriestAnswer = props => {
 		let obj = props.answer;
 		let answerList = Object.keys(obj).map(key => {
-			return <LastArrivalItems result={obj[key]} />;
+			return <LastArrivalItems key={key} result={obj[key]} />;
 		});
 		return answerList;
 	};

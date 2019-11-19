@@ -1,4 +1,5 @@
-import React, { Fragment } from 'react';
+import React, { Fragment, useState, useEffect } from 'react';
+import socketIOClient from 'socket.io-client';
 import './App.css';
 import VideoFeed from './Components/VideoFeed/VideoFeed';
 import SearchBar from './Components/SearchBar/SearchBar';
@@ -22,6 +23,12 @@ function App() {
 		justify-content: center;
 	`;
 
+	const [response, setResponse] = useState(false);
+	const socket = socketIOClient('http://localhost:8080');
+	useEffect(() => {
+		console.log('Verga');
+		//socket.emit('message', 'Hello World!');
+	}, []);
 	return (
 		<Fragment>
 			<TitleOne>Late Checker</TitleOne>

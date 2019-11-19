@@ -1,4 +1,10 @@
 # Import the library
+import socket
+import io
+import struct
+import time
+import pickle
+import zlib
 import face_recognition
 import cv2
 import numpy as np
@@ -7,6 +13,13 @@ import os
 from time import sleep, localtime
 import re
 import requests
+
+
+# declaring the socket connection
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect(('127.0.0.1', 8485))
+connection = client_socket.makefile('wb')
+encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
 
 # Declare all the list
 known_face_encodings = []
@@ -132,6 +145,14 @@ def send_recognized_faces_to_backend(recognized_faces_to_server):
             r = requests.post(url='http://127.0.0.1:5000/receive_data', json=json_to_export)
 
 
+def send_frames_to_server_for_browser(frames_to_be_served_by_the_server):
+    while True:
+        if frames_to_be_served_by_the_server.qsize() > 0:
+            # get the frame of the queue
+            frame = frames_to_be_served_by_the_server.get()
+            # Send to Socket to serve the frames over TCP
+
+
 # gets the video source
 def get_video_stream(source=0):
     pointer = cv2.VideoCapture(source)
@@ -188,6 +209,8 @@ if __name__ == '__main__':
     encodings_of_frame_queue = multiprocessing.Queue()
     # queue containing the recognized faces for sending to the API to register in the DataBase
     recognized_faces_to_server = multiprocessing.Queue()
+    # queue containing the frames to be served by the flask server to the frontend application
+    frames_to_be_served_by_the_server = multiprocessing.Queue()
 
     put_frames_to_queue_process = multiprocessing.Process(
         target=put_frames_to_queue, args=(video_stream, frames_queue, frames_to_get_locations_queue,))
@@ -202,6 +225,12 @@ if __name__ == '__main__':
         target=send_recognized_faces_to_backend,
         args=(recognized_faces_to_server, ))
     send_recognized_faces_to_backend_process.start()
+
+    send_frames_to_server_for_browser_process = multiprocessing.Process(
+        target=send_frames_to_server_for_browser,
+        args=(frames_to_be_served_by_the_server, )
+    )
+    send_frames_to_server_for_browser_process.start()
 
     faces = []
 
@@ -223,7 +252,13 @@ if __name__ == '__main__':
         cv2.putText(frm, text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
 
         # Showing the frame with all the applied modifications
-        cv2.imshow("Stream", frm)
+        # cv2.imshow("Stream", frm)
+
+        # Send frame to socket
+        result, frame = cv2.imencode('.jpg', frm, encode_param)
+        data = pickle.dumps(frame, 0)
+        size = len(data)
+        client_socket.sendall(struct.pack('>L', size) + data)
 
         # Press "q" key if you want to exit
         key_pressed = cv2.waitKey(1) & 0xFF

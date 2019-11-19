@@ -32,7 +32,7 @@ const VideoFeed = () => {
 				width='100%'
 				height='576'
 			/> */}
-			<WebCamComponent />
+			{/* <WebCamComponent /> */}
 		</VideoFeedSection>
 	);
 };

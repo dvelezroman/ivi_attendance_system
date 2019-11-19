@@ -21,7 +21,7 @@ const LastArrivalItems = props => {
 	const UlList = styled.ul`
 		min-width: 100%;
 	`;
-
+	console.log(props);
 	return (
 		<OneResult>
 			<UlList>

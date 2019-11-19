@@ -56,7 +56,7 @@ const EmployeeToDeleteList = props => {
 	const EmployeeListItem = props => {
 		let obj = props.list;
 		let employeeList = Object.keys(obj).map(key => {
-			return <EmployeeItem name={obj[key]} />;
+			return <EmployeeItem key={key} name={obj[key]} />;
 		});
 		return employeeList;
 	};

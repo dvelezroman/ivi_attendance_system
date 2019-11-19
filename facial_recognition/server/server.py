@@ -1,6 +1,7 @@
 # * --------------------- IMPORTS --------------- *
 # All the imports that we will need in our API
 from flask import Flask, request, jsonify
+from flask_socketio import SocketIO
 from flask_cors import CORS, cross_origin
 import os
 import psycopg2
@@ -17,6 +18,8 @@ FILE_PATH = os.path.dirname(os.path.realpath(__file__))
 app = Flask(__name__)
 # To avoid CORS errors
 CORS(app, support_credentials=True)
+
+socketio = SocketIO(app)
 
 # * ---------- DATABASE CONFIG --------- *
 DATABASE_USER = 'postgres'
@@ -180,7 +183,7 @@ def add_employee():
         image_file = request.files['image']
 
         # Store it in the folder of the know faces:
-        file_path = os.path.join(f"assets/img/users/{request.form['nameOfEmployee']}.jpg")
+        file_path = os.path.join(f"middleware/assets/img/users/{request.form['nameOfEmployee']}.jpg")
         image_file.save(file_path)
         answer = 'new employee succesfully added'
 
@@ -198,7 +201,8 @@ def get_employee_list():
 
     # Walk in the user's folder to get the user list
     walk_count = 0
-    for file_name in os.listdir(f"{FILE_PATH}/assets/img/users/"):
+    pathname = os.getcwd()
+    for file_name in os.listdir(f"{pathname}/middleware/assets/img/users/"):
         # Capture the employee's name with the file's name
         name = re.findall("(.*)\.jpg", file_name)
         if name:
@@ -213,7 +217,8 @@ def get_employee_list():
 def delete_employee(name):
     try:
         # Select the path
-        file_path = os.path.join(f'assets/img/users/{name}.jpg')
+        pathname = os.getcwd()
+        file_path = os.path.join(f"{pathname}/middleware/assets/img/users/{name}.jpg")
         # Remove the picture of the employee from the user's folder:
         os.remove(file_path)
         answer = 'Employee succesfully removed'
@@ -228,6 +233,7 @@ def delete_employee(name):
 if __name__ == '__main__':
     # * ---- DEBUG MODE: ----- *
     app.run(host='127.0.0.1', port=5000, debug=True)
+    socketio.run(app)
 
     #  * --- DOCKER PRODUCTION MODE: --- *
     # app.run(host='0.0.0.0', port=os.environ['PORT']) -> DOCKER
