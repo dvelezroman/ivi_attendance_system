@@ -1,10 +1,6 @@
 # Import the library
-import socket
-import io
-import struct
-import time
+import socketio
 import pickle
-import zlib
 import face_recognition
 import cv2
 import numpy as np
@@ -16,10 +12,9 @@ import requests
 
 
 # declaring the socket connection
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect(('127.0.0.1', 8485))
-connection = client_socket.makefile('wb')
-encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+sio = socketio.Client()
+sio.connect('http://127.0.0.1:5000')
+print(f'Connected to socket with the ID. {sio.sid}')
 
 # Declare all the list
 known_face_encodings = []
@@ -151,6 +146,7 @@ def send_frames_to_server_for_browser(frames_to_be_served_by_the_server):
             # get the frame of the queue
             frame = frames_to_be_served_by_the_server.get()
             # Send to Socket to serve the frames over TCP
+            sio.emit('get_frame', frame)
 
 
 # gets the video source
@@ -190,6 +186,7 @@ def put_frames_to_queue(stream, frames_queue, frames_to_get_locations_queue):
 
 # * ------------------------ Select the web cam of the computer -----------------------
 if __name__ == '__main__':
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
 
     get_known_faces_file_names()
     encode_known_faces()
@@ -230,7 +227,7 @@ if __name__ == '__main__':
         target=send_frames_to_server_for_browser,
         args=(frames_to_be_served_by_the_server, )
     )
-    send_frames_to_server_for_browser_process.start()
+    # send_frames_to_server_for_browser_process.start()
 
     faces = []
 
@@ -256,9 +253,8 @@ if __name__ == '__main__':
 
         # Send frame to socket
         result, frame = cv2.imencode('.jpg', frm, encode_param)
-        data = pickle.dumps(frame, 0)
-        size = len(data)
-        client_socket.sendall(struct.pack('>L', size) + data)
+        data = pickle.dumps(frm, 0)
+        sio.emit('get_frame', data)
 
         # Press "q" key if you want to exit
         key_pressed = cv2.waitKey(1) & 0xFF

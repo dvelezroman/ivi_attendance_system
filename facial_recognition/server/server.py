@@ -1,7 +1,7 @@
 # * --------------------- IMPORTS --------------- *
 # All the imports that we will need in our API
 from flask import Flask, request, jsonify
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, send, emit
 from flask_cors import CORS, cross_origin
 import os
 import psycopg2
@@ -12,6 +12,7 @@ import re
 # we define the path of the current file, we will use it for later
 FILE_PATH = os.path.dirname(os.path.realpath(__file__))
 
+frames = []
 
 # * ------------------------ CREATE APP ------------------------------- *
 # Init the app
@@ -19,7 +20,19 @@ app = Flask(__name__)
 # To avoid CORS errors
 CORS(app, support_credentials=True)
 
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins='*')
+
+
+@socketio.on('message')
+def handle_message(message):
+    emit('response', f'I got your message {message}')
+
+
+@socketio.on('get_frame')
+def handle_get_frame(frame):
+    print('I received a frame')
+    # falta enviar el frame hacia la web
+    # print(jsonify(frame))
 
 # * ---------- DATABASE CONFIG --------- *
 DATABASE_USER = 'postgres'

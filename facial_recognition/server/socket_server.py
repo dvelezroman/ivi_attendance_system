@@ -25,6 +25,13 @@ payload_size = struct.calcsize('>L')
 print(f'Payload Size: {payload_size}')
 
 while True:
+    client_socket, client_address = s.accept()
+    if client_socket:
+        print(f'Connection found: {client_address}')
+
+    data = client_socket.recv(1024)
+    print(f'From client_address: {client_address}, received: {data}')
+
     while len(data) < payload_size:
         print(f'Recovered: {len(data)}')
         data += conn.recv(4096)
