@@ -1,6 +1,6 @@
 # * --------------------- IMPORTS --------------- *
 # All the imports that we will need in our API
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_socketio import SocketIO, send, emit
 from flask_cors import CORS, cross_origin
 import os
@@ -8,6 +8,8 @@ import psycopg2
 import cv2
 import numpy as np
 import re
+import pickle
+import threading
 
 # we define the path of the current file, we will use it for later
 FILE_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -21,6 +23,23 @@ app = Flask(__name__)
 CORS(app, support_credentials=True)
 
 socketio = SocketIO(app, cors_allowed_origins='*')
+output_frame = None
+lock = threading.Lock()
+
+
+def generate():
+    global output_frame, lock
+    while True:
+        with lock:
+            if output_frame is None:
+                continue
+
+            # encode frame in JPEG format
+            flag, encoded_image = cv2.imencode('.jpg', output_frame)
+            if not flag:
+                continue
+
+        yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encoded_image) + b'\r\n')
 
 
 @socketio.on('message')
@@ -30,9 +49,14 @@ def handle_message(message):
 
 @socketio.on('get_frame')
 def handle_get_frame(frame):
+    global output_frame, lock
     print('I received a frame')
-    # falta enviar el frame hacia la web
-    # print(jsonify(frame))
+    # receive the frame and put it in outputFrame
+    received_frame = pickle.loads(frame)
+    # acquire the lock, set the output frame, and release the lock
+    with lock:
+        output_frame = received_frame.copy()
+
 
 # * ---------- DATABASE CONFIG --------- *
 DATABASE_USER = 'postgres'
@@ -51,6 +75,13 @@ def database_connection():
 
 
 # * --------------------------- ROUTES ---------------------------------- *
+# --------------------- Send frames to browsers -------------------------- *
+@app.route("/video_feed")
+def video_feed():
+    # return the response generated along with the specific media type (mime type)
+    return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
 # --------------------- Get data from the face recognition ------------- *
 @app.route('/receive_data', methods=['POST'])
 def get_receive_data():

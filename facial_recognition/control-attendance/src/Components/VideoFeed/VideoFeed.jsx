@@ -32,7 +32,8 @@ const VideoFeed = () => {
 				width='100%'
 				height='576'
 			/> */}
-			<WebCamComponent />
+			<img src='http://127.0.0.1:5000/video_feed'></img>
+			{/* <WebCamComponent /> */}
 		</VideoFeedSection>
 	);
 };

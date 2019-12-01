@@ -14,7 +14,7 @@ import requests
 # declaring the socket connection
 sio = socketio.Client()
 sio.connect('http://127.0.0.1:5000')
-print(f'Connected to socket with the ID. {sio.sid}')
+print('Connected to socket with the ID.'.format(sio.sid))
 
 # Declare all the list
 known_face_encodings = []
@@ -145,8 +145,11 @@ def send_frames_to_server_for_browser(frames_to_be_served_by_the_server):
         if frames_to_be_served_by_the_server.qsize() > 0:
             # get the frame of the queue
             frame = frames_to_be_served_by_the_server.get()
+            # encode the frame in JPEG format
+            (flag, encoded_image) = cv2.imencode(".jpg", frame)
+            # ensure the frame was successfully encoded
             # Send to Socket to serve the frames over TCP
-            sio.emit('get_frame', frame)
+            sio.emit('get_frame', encoded_image)
 
 
 # gets the video source
@@ -252,7 +255,6 @@ if __name__ == '__main__':
         # cv2.imshow("Stream", frm)
 
         # Send frame to socket
-        result, frame = cv2.imencode('.jpg', frm, encode_param)
         data = pickle.dumps(frm, 0)
         sio.emit('get_frame', data)
 
@@ -266,6 +268,7 @@ if __name__ == '__main__':
             put_frames_to_queue_process.terminate()
             get_face_locations_process.terminate()
             send_recognized_faces_to_backend_process.terminate()
+            # send_frames_to_server_for_browser_process.terminate()
             break
 
     cv2.destroyAllWindows()

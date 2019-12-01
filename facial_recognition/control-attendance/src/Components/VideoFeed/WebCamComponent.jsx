@@ -18,7 +18,7 @@ const WebCamComponent = () => {
 	const [response, setResponse] = useState(false);
 	const socket = socketIOClient('http://127.0.0.1:5000');
 	useEffect(() => {
-		socket.emit('message', { data: 'Hello World!' });
+		//socket.emit('message', { data: 'Hello World!' });
 		socket.on('response', response => {
 			console.log(response);
 		});
