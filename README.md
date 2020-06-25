@@ -1,4 +1,5 @@
-# ivi_attendance_system
+# IVI attendance and control systems
+
 Attendance control system using face recognition
 
 control and register the attendance of people into a company or local.
